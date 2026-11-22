@@ -42,9 +42,14 @@ node ticket-to-merge/evals/run.mjs --case <B1..B5|K1|K2|combined> --runs 3 --mod
 node ticket-to-merge/evals/run.mjs --case combined --dry-run     # no review, no cost
 ```
 
+Options:
+
+- `--evals-dir <path>`: read `manifest.json` and the case patches from `<path>` instead of `ticket-to-merge/evals/` (for example a held-out set kept outside the fork). `base.patch` still comes from `ticket-to-merge/evals/base.patch`. Results go to `<path>/results/<timestamp>/`. A case may omit `concern` and may carry `includes` and a `clean` array of `{id, file, description}`; `clean` entries are listed in `summary.md` (and `summary.json`) and never matched against findings. Anchors are verified in `--dry-run` exactly as for the built-in set.
+- `--no-spec`: remove `SPEC.md` in the same commit that removes the plugin, so it is neither in the reviewed diff nor on disk (simulates a branch with no spec). `summary.md` and `summary.json` record `spec: none` (otherwise `present`).
+
 Always pass `--model sonnet`. `--keep` keeps the temp clone. `--dry-run` builds the sandbox, prints the reviewed diff stat, verifies the anchors and runs `npm run build && npm run test:run`; it never calls `claude`.
 
-Output goes to `ticket-to-merge/evals/results/<timestamp>/` (git-ignored): `<case>-run<k>.json` (raw), `ledger.md` (every finding with its label), `summary.md`, `summary.json`.
+Output goes to `ticket-to-merge/evals/results/<timestamp>/` (git-ignored; `<evals-dir>/results/<timestamp>/` with `--evals-dir`): `<case>-run<k>.json` (raw), `ledger.md` (every finding with its label), `summary.md`, `summary.json`.
 
 Matching: a finding matches an expected bug when its file path ends with the expected file AND (its line is within the expected range +-3 OR a keyword appears in `issue` + `evidence`, case-insensitive). A keyword hit outranks a line-only hit. A bug matches one finding; further findings for it are `duplicate:<id>`; everything else is `needs-judgement`. Matcher tests: `node --test ticket-to-merge/evals/tests/match.test.mjs`.
 
