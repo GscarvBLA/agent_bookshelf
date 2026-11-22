@@ -28,7 +28,7 @@ SQL safety, wildcard escaping, HTML escaping, wrong-type input (arrays, objects,
 2. Read the spec in full if one is given: its interface and numbered acceptance criteria are your checklist for C1 to C3. Then `CLAUDE.md` for C6. With no spec, judge C1 to C3 only against behaviour the code itself promises (names, comments, existing callers) and say so in COVERAGE.
 3. For C2, work out by hand what happens at each boundary. Compare operators exactly (`>` vs `>=`, `length` before or after trim).
 4. For C5, look at what the diff removed or changed, not only what it added.
-5. A failing **build** (TypeScript errors) in `tests.txt` is a C6 finding: quote the error. Failing tests are not yours; the tests reviewer reports them.
+5. A failing **build** (TypeScript errors) in `tests.txt` is a C6 finding: quote the error. Failing tests are not yours; the tests reviewer reports them. If `tests.txt` says `NOT RUN`, report no build failure.
 
 ## What counts as a finding
 

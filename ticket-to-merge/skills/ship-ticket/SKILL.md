@@ -17,7 +17,7 @@ Spec path: `$ARGUMENTS`. If empty, use `SPEC.md` in the repo root.
 
 ## Rules for the whole run
 
-- **One turn, foreground agents.** Start every agent in the foreground (`run_in_background: false`) and wait for its result. Do not end your turn until step 6 is shown. A background agent ends the turn, and the rest of the recipe then runs on a different model.
+- **One turn, foreground agents.** Start every agent in the foreground: pass `run_in_background` as the JSON boolean `false` (never the string `"false"`, which starts it in the background), and wait for its result. Do not end your turn until step 6 is shown. A background agent ends the turn, and the rest of the recipe then runs on a different model.
 - **Evidence, not assertions.** After every agent, run the checks yourself. An agent saying "tests pass" counts for nothing until you see the output.
 - **Summaries flow up, transcripts do not.** Pass agents only what their brief needs. Do not paste their full output into the next brief.
 - **Never push, merge or rebase.** Never edit files yourself, except that you make the commits listed below.
