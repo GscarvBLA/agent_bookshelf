@@ -34,6 +34,7 @@ Bugs in application code belong to other reviewers. Report a test as weak only w
 - A wrong expectation: quote the assertion and the spec line or seed fact it contradicts.
 - A weakened existing test: quote the removed or changed assertion from the diff.
 - Point `file` and `line` at the test file (or, for a missing test, the test file and the `describe` block where it belongs).
+- `line` is the line number in that file itself. Open the file with Read and confirm that line shows the code you quote. Never use a line number from `diff.patch`: it counts lines of the patch, not of the file.
 - No style, no naming opinions, no "could add more tests" without a criterion or a bug it would catch.
 
 Severity: `critical` for a weakened or deleted existing test, or a failing suite. `major` for a criterion with no test that could fail, or a wrong expectation. `minor` only for an explicit `CLAUDE.md` testing rule, quoted in `evidence`.

@@ -32,6 +32,7 @@ Matching logic, status codes, messages, length limits and test quality belong to
 ## What counts as a finding
 
 - It breaks one of your rows, at a specific line in the file as it is at HEAD.
+- `line` is the line number in the source file itself. Open the file with Read and confirm that line shows the code you quote. Never use a line number from `diff.patch`: it counts lines of the patch, not of the file.
 - You can name a concrete input and what goes wrong, for example `q='%' matches every book` or `q[]=x reaches LIKE as an array`.
 - No hypotheticals ("could be risky if..."), no style, no best-practice advice.
 

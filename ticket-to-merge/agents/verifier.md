@@ -26,7 +26,7 @@ For every candidate:
    - **DROP** when the code shows it is wrong (the input is handled elsewhere, the line does not exist, the spec says otherwise), when it is about code the diff did not touch and does not rely on, or when it is style, taste or advice rather than a defect.
    - **DROP** a `minor` finding unless it quotes an explicit `CLAUDE.md` rule that the code breaks.
 5. **Merge** findings that describe the same defect: keep one, with the clearest evidence and the higher severity.
-6. Fix the `line` if it is off but the defect is real.
+6. **Check every `line` in the file itself**, including findings you keep without changes. Read the file at that line: it must exist and show the code the finding is about. If the number is past the end of the file, or points at unrelated code (a common cause: a line number taken from `diff.patch`), find the real line and correct it. A finding whose defect is real but whose line you cannot locate is kept with the best line you can find, never dropped for that reason.
 
 ## Part 2: coverage gaps only
 

@@ -33,6 +33,7 @@ SQL safety, wildcard escaping, HTML escaping, wrong-type input (arrays, objects,
 ## What counts as a finding
 
 - It breaks one of your rows, at a specific line in the file as it is at HEAD.
+- `line` is the line number in the source file itself. Open the file with Read and confirm that line shows the code you quote. Never use a line number from `diff.patch`: it counts lines of the patch, not of the file.
 - You can name a concrete input and the wrong result versus the expected one, for example `q of 100 chars returns 400; spec criterion 4 says exactly 100 is accepted`.
 - No hypotheticals, no style, no "could be cleaner", no alternative designs.
 
