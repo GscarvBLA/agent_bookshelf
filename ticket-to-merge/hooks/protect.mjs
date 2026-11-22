@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   projectRoot, baseDir, protectedReason, realpathBestEffort, isEnvPath, hasGlob, globMatchesEnv,
-  destructivePathReason, referencesSrcDb, snapshotDir, underTests, touchesTests,
+  destructivePathReason, referencesSrcDb, underDir, snapshotDir, underTests, touchesTests,
 } from './lib.mjs';
 
 class Block extends Error {}
@@ -302,12 +302,24 @@ function layerDynamic(segments) {
   }
 }
 
-// src/db is read-only for Bash: every segment that references it must use a read-only verb
+// A segment that can reach a protected file under src/db (the directory, a glob matching seed.sql,
+// a path resolving to it, or a cwd inside src/db) must use a read-only verb. Other src/db files are not guarded here.
+const EXTRACTORS = new Set(['tar', 'bsdtar', 'unzip']);
+const isSrcOrRoot = (w, root, base) => {
+  if (!w || /[$`*?[{]/.test(w)) return false;
+  const abs = realpathBestEffort(path.resolve(base, w));
+  return abs === root || abs === path.join(root, 'src');
+};
+
 function layerSrcDb(segments, root, baseDir0) {
   const bases = segmentBases(segments, baseDir0);
   for (const [si, words] of segments.entries()) {
     const base = bases[si];
     const refs = words.filter((w) => w !== '>' && referencesSrcDb(w, root, base));
+    const extractTo = words.findIndex((w, i) => /^(?:-C|-d|--directory)$/.test(w) && isSrcOrRoot(words[i + 1], root, base)) !== -1
+      || words.some((w) => /^(?:--directory=|-C)(.+)$/.test(w) && isSrcOrRoot(w.replace(/^(?:--directory=|-C)/, ''), root, base));
+    if (extractTo && EXTRACTORS.has(basename(words[commandWord(words)] ?? ''))) refs.push('the src/ extraction directory');
+    if (underDir(base, path.join(root, 'src/db'))) refs.push('the current directory (src/db)');
     if (!refs.length) continue;
     const cw = commandWord(words);
     const verb = words[cw] ? basename(words[cw]) : '';
@@ -320,7 +332,7 @@ function layerSrcDb(segments, root, baseDir0) {
     const redirected = words.some((w, i) => words[i - 1] === '>' && referencesSrcDb(w, root, base));
     const writesViaFlag = words.some((w) => /^--output/.test(w));
     if (!ok || redirected || writesViaFlag) {
-      block(`BLOCKED Bash: '${verb || words[0]}' references ${refs[0]} but src/db is read-only for Bash (rule: src/db allow-list: ls cat head tail less grep rg wc diff file stat sha256sum md5sum git diff/log/show/status/blame). Use Edit/Write on src/db files if a change is truly needed.`);
+      block(`BLOCKED Bash: '${verb || words[0]}' references ${refs[0]} but it can reach a protected file under src/db, so only read-only verbs are allowed (rule: src/db allow-list: ls cat head tail less grep rg wc diff file stat sha256sum md5sum git diff/log/show/status/blame). Name the specific non-protected file (for example src/db/index.ts) instead of the directory or a glob.`);
     }
   }
 }

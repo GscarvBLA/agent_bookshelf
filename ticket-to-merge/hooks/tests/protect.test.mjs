@@ -1,6 +1,7 @@
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
+import fs from 'node:fs';
 import { makeProject, run, PROTECT, bash, tool } from './helpers.mjs';
 
 let proj;
@@ -29,6 +30,15 @@ describe('protect.mjs ALLOW (exit 0, silent)', () => {
     'git commit -m "BOOK-101: add search to book model"',
     'git checkout -b book-101-plant-1',
     'cat src/db/schema.sql',
+    'git add -- src/db/index.ts src/models/book.ts',
+    'git add -- src/db/index.ts src/models/book.ts src/routes/api.ts && git commit -q -m "BOOK-101: implement"',
+    'git diff -- src/db/index.ts',
+    'git diff --stat HEAD -- src/db/index.ts',
+    'git add -- src/db/schema.sql',
+    'git diff --output=src/db/x main',
+    'cp /tmp/x src/db/schema.sql',
+    'cat /tmp/x > src/db/schema.sql',
+    'cd src && ls db && touch db/new.sql',
     'wc -l src/db/schema.sql',
     'git diff main -- src/db/schema.sql',
     'grep -i x src/db/schema.sql',
@@ -121,7 +131,7 @@ describe('protect.mjs BLOCK Bash (exit 2)', () => {
     '`echo rm` -rf x',
     'X=1 ${CMD} y',
     'echo hi; $RM x',
-    'echo $(rm -rf src/db/x)',
+    'echo $(rm -rf src/db)',
     "awk -i inplace '{print}' src/db/*.sql",
     'tar -xf /tmp/evil.tar -C src/db',
     'cp src/db/schema.sql src/db/s?ed.sql',
@@ -136,12 +146,6 @@ describe('protect.mjs BLOCK Bash (exit 2)', () => {
     'D=src/db; rm -rf $D',
     "perl -pi -e 's/a/b/' src/db/*.sql",
     'unzip -o /tmp/x.zip -d src/db',
-    'patch src/db/schema.sql < /tmp/p',
-    'cp /tmp/x src/db/schema.sql',
-    'sort -o src/db/schema.sql src/db/schema.sql',
-    'cat /tmp/x > src/db/schema.sql',
-    'cd src && ls db && touch db/new.sql',
-    'git diff --output=src/db/x main',
     'cd src/db',
     'echo x >src/db/seed.sql',
     'git checkout -- src/db/seed.sql',
@@ -202,4 +206,67 @@ describe('protect.mjs fails closed', () => {
     assert.equal(r.code, 2);
   });
   test('Write without file_path', () => assert.equal(exit(tool('Write', {})).code, 2));
+});
+
+describe('protect.mjs src/db guard only covers what can reach protected files', () => {
+  const blockedNew = [
+    'git add -- src/db/seed.sql',
+    'git add src/db',
+    'git add -A src/db',
+    'git checkout -- src/db',
+    'git add -- src/db/*.sql',
+    'git add -- src/db/{index.ts,seed.sql}',
+    'sed -i s/a/b/ src/db/seed.sql',
+    'cp /tmp/x src/db/se?d.sql',
+    'cat /tmp/x > src/db/seed.sql',
+    'ln -sf /tmp/x src/db/seed.sql',
+    'cd src/db && touch x',
+    'cd src && cd db && touch x',
+    'sort -o src/db/seed.sq? /tmp/x',
+    'tar -xf /tmp/evil.tar -C src',
+    'tar -xf /tmp/evil.tar --directory=src',
+    'unzip -o /tmp/x.zip -d .',
+    'awk -i inplace {print} src/db/$F',
+    'awk -i inplace {print} src/d$X/index.ts',
+    'git add src/db/../db',
+    'cp -r /tmp/x src/db',
+    'rm -rf src/db',
+    'cd src/db && rm *',
+  ];
+  for (const cmd of blockedNew) {
+    test(`blocked: ${cmd}`, () => {
+      const r = exit(bash(cmd));
+      assert.equal(r.code, 2, `expected block: ${cmd}`);
+      assert.match(r.stderr, /BLOCKED/);
+    });
+  }
+
+  test('symlink under src/db that points at seed.sql is blocked', () => {
+    const p = makeProject();
+    try {
+      fs.symlinkSync(path.join(p.root, 'src/db/seed.sql'), path.join(p.root, 'src/db/alias.sql'));
+      for (const cmd of ['awk -i inplace {print} src/db/alias.sql', 'git add -- src/db/alias.sql', 'cd src && awk -i inplace {print} db/alias.sql']) {
+        assert.equal(run(PROTECT, p, bash(cmd)).code, 2, cmd);
+      }
+    } finally { p.cleanup(); }
+  });
+
+  test('symlink under src/db pointing at a non-protected file is allowed', () => {
+    const p = makeProject();
+    try {
+      fs.symlinkSync(path.join(p.root, 'src/db/schema.sql'), path.join(p.root, 'src/db/schema-alias.sql'));
+      assert.equal(run(PROTECT, p, bash('git add -- src/db/schema-alias.sql')).code, 0);
+    } finally { p.cleanup(); }
+  });
+
+  test('implementer may still Edit src/db/index.ts', () => {
+    const r = exit({ agent_type: 'ticket-to-merge:implementer', ...tool('Edit', { file_path: P('src/db/index.ts') }) });
+    assert.equal(r.code, 0, r.stderr);
+  });
+
+  test('implementer still cannot change tests/; test-writer only tests/', () => {
+    assert.equal(exit({ agent_type: 'ticket-to-merge:implementer', ...tool('Edit', { file_path: P('tests/routes/books.test.ts') }) }).code, 2);
+    assert.equal(exit({ agent_type: 'ticket-to-merge:test-writer', ...tool('Edit', { file_path: P('src/db/index.ts') }) }).code, 2);
+    assert.equal(exit({ agent_type: 'ticket-to-merge:test-writer', ...tool('Edit', { file_path: P('tests/routes/books.test.ts') }) }).code, 0);
+  });
 });

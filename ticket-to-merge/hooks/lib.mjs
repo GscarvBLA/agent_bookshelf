@@ -167,21 +167,35 @@ export function destructivePathReason(token, root, base) {
   return null;
 }
 
-const SRC_DB_TARGETS = ['src/db', 'src/db/seed.sql', 'src/db/schema.sql', 'src/db/index.ts'];
+// What a glob under src/db is tested against: the directory itself and the protected files that can live there.
+const SRC_DB_TARGETS = ['src/db', 'src/db/seed.sql', 'src/db/.env', 'src/db/.env.local'];
 
-/** Does this path word (Bash argument) point at src/db or something inside it? */
+/**
+ * Could this Bash path word reach a protected file under src/db? True for src/db itself, a glob that
+ * can match seed.sql (or the directory), a variable-built path into src/db, or a path that resolves
+ * (../, symlinks) to a protected file. An explicit path to another file (index.ts, schema.sql) is false.
+ */
 export function referencesSrcDb(word, root, base) {
   let t = word.replace(/^[\w-]+=/, '');
   if (!t || t.startsWith('-') && !t.includes('/')) return false;
   if (t.startsWith('~')) t = path.join(os.homedir(), t.slice(1));
+  const inDb = (rel) => rel === 'src/db' || rel.startsWith('src/db/');
+  if (/[$`]/.test(t)) {
+    const prefix = t.slice(0, t.search(/[$`]/));
+    const dir = prefix.includes('/') ? prefix.slice(0, prefix.lastIndexOf('/') + 1) : '';
+    const rel = path.relative(root, realpathBestEffort(path.resolve(base, dir || '.')));
+    const tail = prefix.slice(dir.length);
+    return inDb(rel) || (rel === 'src' && 'db'.startsWith(tail));
+  }
   const abs = path.resolve(base, t);
   if (hasGlob(t)) {
     const rel = path.relative(root, abs);
     if (rel.startsWith('..') || path.isAbsolute(rel)) return false;
     return expandBraces(rel).some((p) => SRC_DB_TARGETS.some((x) => globMatches(p, x)));
   }
-  const rel = path.relative(root, realpathBestEffort(abs));
-  return rel === 'src/db' || rel.startsWith('src/db/');
+  const real = realpathBestEffort(abs);
+  const rel = path.relative(root, real);
+  return rel === 'src/db' || (inDb(rel) && protectedReason(real, root) !== null);
 }
 
 // ---- role split (test-writer / implementer): the tests/ directory
