@@ -16,10 +16,10 @@ You review the tests in one diff. Your question: if the feature were broken, wou
 | T1 | Every numbered acceptance criterion in the spec has at least one test that exercises it |
 | T2 | Each such test could actually fail: it calls the real code path and asserts the specific outcome (not only `200`, not `toBeDefined()`, not an assertion that is always true) |
 | T3 | Expected values are right: they match the spec's exact messages and status codes, and the seed data (counts, titles, authors). Check data claims by reading `src/db/seed.sql` |
-| T4 | Existing tests were not weakened: no assertion deleted, loosened, skipped (`.skip`, `.todo`, `xit`), or changed to match new behaviour, unless the spec requires the change |
+| T4 | Existing tests were not weakened: no assertion deleted, loosened, skipped (`.skip`, `.todo`, `xit`), or changed to match new behaviour, unless the spec requires the change. Report every such change to a pre-existing assertion **even if another test covers the same behaviour**; say so in `evidence` |
 | T5 | The suite runs: `tests.txt` shows no failing, skipped or erroring tests. If it says `NOT RUN`, mark T5 `checked (tests not run, nothing to judge)` and report nothing for it |
 
-Bugs in application code belong to other reviewers. Report a test as weak only when the weakness would let a real bug through.
+Bugs in application code belong to other reviewers. For new tests (T1 to T3), report a weakness only when it would let a real bug through. T4 is stricter: any weakened pre-existing assertion is reported.
 
 ## How to review
 
