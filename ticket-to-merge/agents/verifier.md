@@ -26,6 +26,8 @@ For every candidate:
    - **DROP** when the code shows it is wrong (the input is handled elsewhere, the line does not exist, the spec says otherwise), when it is about code the diff did not touch and does not rely on, or when it is style, taste or advice rather than a defect.
    - **DROP** a `minor` finding unless it quotes an explicit `CLAUDE.md` rule that the code breaks.
 5. **Merge** findings that describe the same defect: keep one, with the clearest evidence and the higher severity.
+   - **Test gaps that only shadow a code bug merge into it.** If a test finding (a missing, weak or altered test) is about exactly the behaviour of a code finding you KEEP, do not report it separately. Add it to that code finding's `evidence` as one clause, for example "...; the boundary test at tests/models/book.test.ts:99 uses 99 characters, so no test catches it."
+   - Keep a test finding separate only when no kept code finding covers that behaviour: an existing assertion was weakened or deleted, a test can never fail on its own, or the code is correct but the criterion has no test.
 6. **Check every `line` in the file itself**, including findings you keep without changes. Read the file at that line: it must exist and show the code the finding is about. If the number is past the end of the file, or points at unrelated code (a common cause: a line number taken from `diff.patch`), find the real line and correct it. A finding whose defect is real but whose line you cannot locate is kept with the best line you can find, never dropped for that reason.
 
 ## Part 2: coverage gaps only
