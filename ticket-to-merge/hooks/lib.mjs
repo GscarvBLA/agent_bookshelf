@@ -183,3 +183,39 @@ export function referencesSrcDb(word, root, base) {
   const rel = path.relative(root, realpathBestEffort(abs));
   return rel === 'src/db' || rel.startsWith('src/db/');
 }
+
+// ---- role split (test-writer / implementer): the tests/ directory
+const TESTS_SAMPLES = [
+  'tests', 'tests/models', 'tests/routes', 'tests/a.test.ts', 'tests/models/book.test.ts', 'tests/models/api.test.ts',
+  'tests/routes/books.test.ts', 'tests/routes/api.test.ts', 'tests/x/y/z.ts',
+];
+
+/** Is abs (already resolved) tests/ itself or inside <root>/tests? */
+export function underTests(abs, root) {
+  return underDir(abs, path.join(root, 'tests'));
+}
+
+/**
+ * Could a Bash path word (literal, glob or $var) point at tests/, something inside it,
+ * or a directory that contains it (repo root, a parent)? Best effort, errs towards true.
+ */
+export function touchesTests(token, root, base) {
+  let t = token.replace(/^(?:of|--output|--target-directory)=/, '');
+  if (!t) return false;
+  if (t.includes('`') || t.includes('$(')) return true;
+  if (t.startsWith('~')) t = path.join(os.homedir(), t.slice(1));
+  const testsDir = path.join(root, 'tests');
+  if (t.includes('$')) {
+    const prefix = t.slice(0, t.indexOf('$'));
+    const dir = prefix.includes('/') ? prefix.slice(0, prefix.lastIndexOf('/') + 1) : '';
+    const abs = realpathBestEffort(path.resolve(base, dir || '.'));
+    return abs === root || underDir(abs, testsDir) || underDir(testsDir, abs);
+  }
+  if (hasGlob(t)) {
+    const rel = path.relative(root, path.resolve(base, t));
+    if (rel.startsWith('..') || path.isAbsolute(rel)) return false;
+    return expandBraces(rel).some((p) => p === 'tests' || p.startsWith('tests/') || TESTS_SAMPLES.some((x) => globMatches(p, x)));
+  }
+  const abs = realpathBestEffort(path.resolve(base, t));
+  return underTests(abs, root) || underDir(testsDir, abs);
+}

@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   projectRoot, baseDir, protectedReason, realpathBestEffort, isEnvPath, hasGlob, globMatchesEnv,
-  destructivePathReason, referencesSrcDb, snapshotDir,
+  destructivePathReason, referencesSrcDb, snapshotDir, underTests, touchesTests,
 } from './lib.mjs';
 
 class Block extends Error {}
@@ -23,6 +23,84 @@ function checkWriteTool(input, root, base) {
   const abs = realpathBestEffort(path.resolve(base, p));
   const why = protectedReason(abs, root) || protectedReason(path.resolve(base, p), root);
   if (why) block(`BLOCKED ${input.tool_name} on ${p}: ${why} is protected by ticket-to-merge. Do not edit it; change application code under src/ and add a Vitest test instead.`);
+}
+
+// ---------- role split: ticket-to-merge:test-writer / ticket-to-merge:implementer ----------
+const IMPLEMENTER_MSG = 'BLOCKED: implementer cannot change tests/. If a test looks wrong, return STATUS: blocked with your reason instead.';
+const TEST_WRITER_MSG = 'BLOCKED: test-writer may only change files under tests/ and run read-only or test commands.';
+
+// agent_type is "<plugin>:<agent>" for plugin agents; the suffix after the last ':' also covers a bare name
+function agentRole(input) {
+  if (typeof input.agent_type !== 'string') return null;
+  const name = input.agent_type.split(':').pop();
+  return name === 'test-writer' || name === 'implementer' ? name : null;
+}
+
+function roleWriteTool(role, input, root, base) {
+  const ti = input.tool_input || {};
+  const p = ti.file_path ?? ti.notebook_path;
+  const resolved = path.resolve(base, p);
+  const real = realpathBestEffort(resolved);
+  if (role === 'implementer' && (underTests(real, root) || underTests(resolved, root))) block(IMPLEMENTER_MSG);
+  if (role === 'test-writer' && !(underTests(real, root) && underTests(resolved, root))) block(TEST_WRITER_MSG);
+}
+
+const EXTRA_WRITERS = new Set(['patch', 'unzip', 'tar']);
+const TARGET_LAST = new Set(['cp', 'ln', 'install', 'rsync']);
+const GIT_TREE_VERBS = new Set(['checkout', 'restore', 'rm', 'mv', 'reset', 'clean', 'stash', 'apply', 'am']);
+
+function implementerBash(segments, root, baseDir0) {
+  const bases = segmentBases(segments, baseDir0);
+  for (const [si, words] of segments.entries()) {
+    const base = bases[si];
+    const hit = (w) => { if (touchesTests(w, root, base)) block(IMPLEMENTER_MSG); };
+    words.forEach((w, i) => { if (w === '>' && words[i + 1]) hit(words[i + 1]); });
+    const cw = commandWord(words);
+    const verb = words[cw] ? basename(words[cw]) : '';
+    const rest = words.slice(cw + 1).filter((w) => w !== '>');
+    const args = rest.filter((w) => !w.startsWith('-'));
+    const targetFlags = rest.filter((w) => /^--target-directory=/.test(w));
+    if (DESTRUCTIVE.has(verb) || EXTRA_WRITERS.has(verb)) {
+      const viaFlag = targetFlags.length || rest.includes('-t');
+      (TARGET_LAST.has(verb) && !viaFlag ? args.slice(-1) : [...args, ...targetFlags]).forEach(hit);
+    }
+    if ((verb === 'sed' || verb === 'perl') && rest.some((w) => /^-[a-zA-Z]*i|^--in-place/.test(w))) args.forEach(hit);
+    if (verb === 'awk' && rest.includes('inplace')) args.forEach(hit);
+    if (verb === 'find' && rest.some((w) => /^-(delete|exec|execdir|ok|okdir|fprint0?|fls)$/.test(w))) {
+      const paths = [];
+      for (const w of rest) { if (/^[-!(]/.test(w)) break; paths.push(w); }
+      (paths.length ? paths : ['.']).forEach(hit);
+    }
+    if (verb === 'git') {
+      let i = cw + 1;
+      while (i < words.length && words[i].startsWith('-')) i += ['-C', '-c', '--git-dir', '--work-tree'].includes(words[i]) ? 2 : 1;
+      if (GIT_TREE_VERBS.has(words[i])) words.slice(i + 1).filter((w) => !w.startsWith('-')).forEach(hit);
+    }
+  }
+}
+
+const TW_SIMPLE = new Set(['ls', 'cat', 'head', 'tail', 'grep', 'rg', 'wc', 'find', 'pwd']);
+const TW_GIT = new Set(['status', 'diff', 'log', 'show']);
+
+function testWriterSegmentOk(words) {
+  const [a, b, c] = words;
+  if (a === 'npm') return b === 'run' && (c === 'test:run' || c === 'build');
+  if (a === 'npx') return (b === 'vitest' && c === 'run') || (b === 'tsc' && c === '--noEmit');
+  if (a === 'git') return TW_GIT.has(b) && !words.some((w) => /^--output/.test(w));
+  if (!TW_SIMPLE.has(a)) return false;
+  if (a === 'find') return !words.some((w) => /^-(delete|exec|execdir|ok|okdir|fprint0?|fls|fprintf)$/.test(w));
+  if (a === 'rg') return !words.some((w) => /^--pre/.test(w));
+  return true;
+}
+
+function testWriterBash(n, segments) {
+  const deny = () => block(TEST_WRITER_MSG);
+  if (/`|\$\(|[<>]\(/.test(n)) deny();
+  if (/\d*>&(?![\d-]+(?:\s|$|[;&|)]))/.test(n)) deny(); // >&file writes a file; only 2>&1 style dups are fine
+  for (const words of segments) {
+    words.forEach((w, i) => { if (w === '>' && words[i + 1] !== '/dev/null') deny(); });
+    if (!testWriterSegmentOk(words.filter((w) => w !== '>' && w !== '/dev/null'))) deny();
+  }
 }
 
 function checkReadTool(input, root, base) {
@@ -247,18 +325,21 @@ function layerSrcDb(segments, root, baseDir0) {
   }
 }
 
-function checkBash(input, root, base) {
+function checkBash(input, root, base, role) {
   const cmd = input.tool_input?.command;
   if (typeof cmd !== 'string') block('Bash: no command string given.');
   const n = normalise(cmd);
-  if (/^node --test ticket-to-merge\/hooks\/tests(?:\/(?:\*\.test\.mjs)?)?$/.test(n)) return; // the guardrails' own test run
-  layer1(n, root);
   const segments = [...splitSegments(n), ...innerSegments(n)];
-  layerDynamic(segments);
-  layer2(segments, root, base);
-  layer3(segments, root, base);
-  layerSrcDb(segments, root, base);
-  layer4(n, segments, root, base);
+  if (!/^node --test ticket-to-merge\/hooks\/tests(?:\/(?:\*\.test\.mjs)?)?$/.test(n)) { // the guardrails' own test run skips these
+    layer1(n, root);
+    layerDynamic(segments);
+    layer2(segments, root, base);
+    layer3(segments, root, base);
+    layerSrcDb(segments, root, base);
+    layer4(n, segments, root, base);
+  }
+  if (role === 'implementer') implementerBash(segments, root, base);
+  if (role === 'test-writer') testWriterBash(n, segments);
 }
 
 function main(raw) {
@@ -267,9 +348,12 @@ function main(raw) {
   const root = projectRoot(input);
   const base = baseDir(input, root);
   const tool = input.tool_name;
-  if (WRITE_TOOLS.has(tool)) checkWriteTool(input, root, base);
-  else if (READ_TOOLS.has(tool)) checkReadTool(input, root, base);
-  else if (tool === 'Bash') checkBash(input, root, base);
+  const role = agentRole(input);
+  if (WRITE_TOOLS.has(tool)) {
+    checkWriteTool(input, root, base);
+    if (role) roleWriteTool(role, input, root, base);
+  } else if (READ_TOOLS.has(tool)) checkReadTool(input, root, base);
+  else if (tool === 'Bash') checkBash(input, root, base, role);
 }
 
 try {
