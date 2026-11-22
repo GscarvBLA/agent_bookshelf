@@ -23,6 +23,7 @@ Spec path: `$ARGUMENTS`. If empty, use `SPEC.md` in the repo root.
 - **Never push, merge or rebase.** Never edit files yourself, except that you make the commits listed below.
 - **Keep output small.** Run the suite as `npm run build 2>&1 | tail -20 && npm run test:run 2>&1 | tail -40`.
 - Follow `CLAUDE.md`. Never run bare `npm test`. Do not start the app.
+- To check that no stray `bookshelf.db-*` files appeared, use the Glob tool. Never name protected files (`bookshelf.db*`, `seed.sql`, `.env`) in a Bash command: the guardrail blocks it.
 - Commit messages must not name protected files (the guardrail hook blocks the command).
 - Before each step, tell the user in one line which step you are on.
 
