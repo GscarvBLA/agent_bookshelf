@@ -1,0 +1,21 @@
+diff --git a/src/models/book.ts b/src/models/book.ts
+index 0ebcf67..5b436db 100644
+--- a/src/models/book.ts
++++ b/src/models/book.ts
+@@ -22,6 +22,7 @@ export function getBookById(id: number): Book | undefined {
+ export type SearchQueryResult = { ok: true; query: string } | { ok: false; error: string };
+ 
+ const MAX_QUERY_LENGTH = 100;
++const SORT_COLUMN = 'title';
+ 
+ export function parseSearchQuery(raw: unknown): SearchQueryResult {
+   if (raw === undefined) return { ok: true, query: '' };
+@@ -40,7 +41,7 @@ export function searchBooks(query: string): Book[] {
+   const escaped = parsed.query.toLowerCase().replace(/[\\%_]/g, '\\$&');
+   const pattern = `%${escaped}%`;
+   return all(
+-    "SELECT * FROM books WHERE lower_js(title) LIKE ? ESCAPE '\\' OR lower_js(author) LIKE ? ESCAPE '\\' ORDER BY title",
++    `SELECT * FROM books WHERE lower_js(title) LIKE ? ESCAPE '\\' OR lower_js(author) LIKE ? ESCAPE '\\' ORDER BY ${SORT_COLUMN}`,
+     [pattern, pattern]
+   ) as unknown as Book[];
+ }

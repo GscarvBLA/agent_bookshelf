@@ -1,0 +1,23 @@
+diff --git a/src/models/book.ts b/src/models/book.ts
+index 0ebcf67..f50c542 100644
+--- a/src/models/book.ts
++++ b/src/models/book.ts
+@@ -22,6 +22,7 @@ export function getBookById(id: number): Book | undefined {
+ export type SearchQueryResult = { ok: true; query: string } | { ok: false; error: string };
+ 
+ const MAX_QUERY_LENGTH = 100;
++const LIKE_WILDCARD = '%';
+ 
+ export function parseSearchQuery(raw: unknown): SearchQueryResult {
+   if (raw === undefined) return { ok: true, query: '' };
+@@ -37,8 +38,8 @@ export function searchBooks(query: string): Book[] {
+   if (!parsed.ok) throw new Error(parsed.error);
+   if (parsed.query === '') return getAllBooks();
+ 
+-  const escaped = parsed.query.toLowerCase().replace(/[\\%_]/g, '\\$&');
+-  const pattern = `%${escaped}%`;
++  const escapedQuery = parsed.query.toLowerCase().replace(/[\\%_]/g, '\\$&');
++  const pattern = `${LIKE_WILDCARD}${escapedQuery}${LIKE_WILDCARD}`;
+   return all(
+     "SELECT * FROM books WHERE lower_js(title) LIKE ? ESCAPE '\\' OR lower_js(author) LIKE ? ESCAPE '\\' ORDER BY title",
+     [pattern, pattern]

@@ -1,0 +1,60 @@
+diff --git a/src/models/book.ts b/src/models/book.ts
+index 0ebcf67..2b9c4e5 100644
+--- a/src/models/book.ts
++++ b/src/models/book.ts
+@@ -28,7 +28,7 @@ export function parseSearchQuery(raw: unknown): SearchQueryResult {
+   if (typeof raw !== 'string') return { ok: false, error: 'Search query must be a single value' };
+   const query = raw.trim();
+   if (/[\u0000-\u001F\u007F]/.test(query)) return { ok: false, error: 'Search query contains invalid characters' };
+-  if (query.length > MAX_QUERY_LENGTH) return { ok: false, error: 'Search query must be 100 characters or fewer' };
++  if (query.length >= MAX_QUERY_LENGTH) return { ok: false, error: 'Search query must be 100 characters or fewer' };
+   return { ok: true, query };
+ }
+ 
+diff --git a/tests/models/book.test.ts b/tests/models/book.test.ts
+index 98f2e95..e01ca81 100644
+--- a/tests/models/book.test.ts
++++ b/tests/models/book.test.ts
+@@ -111,11 +111,11 @@ describe('Book Model', () => {
+     });
+ 
+     it('AC13: accepts exactly 100 characters', () => {
+-      expect(() => Book.searchBooks('a'.repeat(100))).not.toThrow();
++      expect(() => Book.searchBooks('a'.repeat(99))).not.toThrow();
+     });
+ 
+     it('AC4: accepts 101 characters that trim to 100', () => {
+-      expect(() => Book.searchBooks(' ' + 'a'.repeat(100))).not.toThrow();
++      expect(() => Book.searchBooks(' ' + 'a'.repeat(99))).not.toThrow();
+     });
+ 
+     it('AC13: throws for a control character', () => {
+@@ -162,10 +162,10 @@ describe('Book Model', () => {
+     });
+ 
+     it('AC4: length boundary is 100 after trimming', () => {
+-      expect(Book.parseSearchQuery('a'.repeat(100))).toEqual({ ok: true, query: 'a'.repeat(100) });
+-      expect(Book.parseSearchQuery(' ' + 'a'.repeat(100))).toEqual({
++      expect(Book.parseSearchQuery('a'.repeat(99))).toEqual({ ok: true, query: 'a'.repeat(99) });
++      expect(Book.parseSearchQuery(' ' + 'a'.repeat(99))).toEqual({
+         ok: true,
+-        query: 'a'.repeat(100)
++        query: 'a'.repeat(99)
+       });
+       expect(Book.parseSearchQuery('a'.repeat(101))).toEqual({
+         ok: false,
+diff --git a/tests/routes/api.test.ts b/tests/routes/api.test.ts
+index e752562..7b8d519 100644
+--- a/tests/routes/api.test.ts
++++ b/tests/routes/api.test.ts
+@@ -127,8 +127,8 @@ describe('API Routes', () => {
+     });
+ 
+     it('AC4: accepts 100 characters, and 101 that trim to 100', async () => {
+-      expect((await get('?q=' + 'a'.repeat(100))).status).toBe(200);
+-      expect((await get('?q=%20' + 'a'.repeat(100))).status).toBe(200);
++      expect((await get('?q=' + 'a'.repeat(99))).status).toBe(200);
++      expect((await get('?q=%20' + 'a'.repeat(99))).status).toBe(200);
+     });
+ 
+     it('AC4: rejects 101 characters with 400', async () => {

@@ -1,0 +1,246 @@
+{
+  "base": "base.patch",
+  "cases": [
+    {
+      "id": "B1",
+      "kind": "bug",
+      "patch": "cases/B1-boundary.patch",
+      "concern": "C2",
+      "description": "Length check rejects 100-character queries (> became >=), so at most 99 characters are accepted. The rule is enforced once, in parseSearchQuery, which the HTML route, the JSON API and searchBooks all call. Tests were edited to use 99 instead of 100.",
+      "expected": [
+        {
+          "bug": "B1",
+          "file": "src/models/book.ts",
+          "lines": [
+            31,
+            31
+          ],
+          "anchor": "query.length >= MAX_QUERY_LENGTH",
+          "keywords": [
+            "off-by-one",
+            "boundary",
+            ">= MAX_QUERY_LENGTH",
+            "exactly 100",
+            "100 characters",
+            "99 "
+          ]
+        }
+      ]
+    },
+    {
+      "id": "B2",
+      "kind": "bug",
+      "patch": "cases/B2-author-dropped.patch",
+      "concern": "C1",
+      "description": "searchBooks matches title only; the author LIKE clause and its second parameter were dropped. The tests that searched by author (and two case-folding tests that relied on author matches) were deleted.",
+      "expected": [
+        {
+          "bug": "B2",
+          "file": "src/models/book.ts",
+          "lines": [
+            43,
+            43
+          ],
+          "anchor": "lower_js(title) LIKE ? ESCAPE",
+          "keywords": [
+            "author"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "B3",
+      "kind": "bug",
+      "patch": "cases/B3-sql-injection.patch",
+      "concern": "S1",
+      "description": "searchBooks interpolates the (LIKE-escaped but not quote-escaped) user query into the SQL string instead of using ? placeholders. Normal input works; a single quote breaks out of the literal. The SQL-injection tests were deleted.",
+      "expected": [
+        {
+          "bug": "B3",
+          "file": "src/models/book.ts",
+          "lines": [
+            43,
+            43
+          ],
+          "anchor": "LIKE '${pattern}'",
+          "keywords": [
+            "sql injection",
+            "sql-injection",
+            "injection",
+            "interpolat",
+            "concatenat",
+            "placeholder",
+            "parameteri"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "B4",
+      "kind": "bug",
+      "patch": "cases/B4-xss-title.patch",
+      "concern": "S3",
+      "description": "The book card partial prints book.title with <%- %> (unescaped) instead of <%= %>, so a stored title containing HTML is rendered as markup. One test assertion expecting &amp; was changed to a bare &.",
+      "expected": [
+        {
+          "bug": "B4",
+          "file": "src/views/partials/book-grid.ejs",
+          "lines": [
+            4,
+            4
+          ],
+          "anchor": "<%- book.title %>",
+          "keywords": [
+            "xss",
+            "cross-site",
+            "unescaped",
+            "<%-",
+            "escape",
+            "escaping",
+            "html injection"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "B5",
+      "kind": "bug",
+      "patch": "cases/B5-weakened-test.patch",
+      "concern": "T4",
+      "description": "Pre-existing test \"GET /api/books returns all books\" asserted toHaveLength(50); it now asserts res.body.length toBeGreaterThan(0). No code change. (Plain toBeGreaterThan on the array is not valid, so the assertion reads res.body.length.)",
+      "expected": [
+        {
+          "bug": "B5",
+          "file": "tests/routes/api.test.ts",
+          "lines": [
+            25,
+            25
+          ],
+          "anchor": "toBeGreaterThan(0)",
+          "keywords": [
+            "weaken",
+            "toBeGreaterThan",
+            "toHaveLength",
+            "loosen",
+            "50 books",
+            "weak assertion"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "K1",
+      "kind": "clean",
+      "patch": "cases/K1-clean-refactor.patch",
+      "concern": null,
+      "description": "Clean refactor in src/models/book.ts: local variable escaped renamed to escapedQuery and the literal % extracted into a LIKE_WILDCARD constant. Behaviour identical; any finding is a false positive."
+    },
+    {
+      "id": "K2",
+      "kind": "clean",
+      "patch": "cases/K2-constant-sort.patch",
+      "concern": null,
+      "description": "Clean but suspicious-looking: a fixed module constant SORT_COLUMN = 'title' is interpolated into the ORDER BY of the search SQL via a template literal. It is a constant, not input, so it is safe; flagging it as SQL injection is a false positive. (In the combined tree this sits on the same line as B3.)"
+    },
+    {
+      "id": "combined",
+      "kind": "bug",
+      "patch": "cases/combined.patch",
+      "includes": [
+        "B1",
+        "B2",
+        "B3",
+        "B4",
+        "B5",
+        "K1",
+        "K2"
+      ],
+      "concern": null,
+      "description": "B1..B5, K1 and K2 together. B2, B3 and K2 edit the same SQL statement, so the individual patches cannot be stacked; combined.patch was composed by applying every edit to one tree (see README). Expected locations are located in this combined tree. B2 and B3 point at the same line; K2 shares that line but is not a bug.",
+      "expected": [
+        {
+          "bug": "B1",
+          "file": "src/models/book.ts",
+          "lines": [
+            33,
+            33
+          ],
+          "anchor": "query.length >= MAX_QUERY_LENGTH",
+          "keywords": [
+            "off-by-one",
+            "boundary",
+            ">= MAX_QUERY_LENGTH",
+            "exactly 100",
+            "100 characters",
+            "99 "
+          ]
+        },
+        {
+          "bug": "B2",
+          "file": "src/models/book.ts",
+          "lines": [
+            45,
+            45
+          ],
+          "anchor": "LIKE '${pattern}' ESCAPE",
+          "keywords": [
+            "author"
+          ]
+        },
+        {
+          "bug": "B3",
+          "file": "src/models/book.ts",
+          "lines": [
+            45,
+            45
+          ],
+          "anchor": "LIKE '${pattern}'",
+          "keywords": [
+            "sql injection",
+            "sql-injection",
+            "injection",
+            "interpolat",
+            "concatenat",
+            "placeholder",
+            "parameteri"
+          ]
+        },
+        {
+          "bug": "B4",
+          "file": "src/views/partials/book-grid.ejs",
+          "lines": [
+            4,
+            4
+          ],
+          "anchor": "<%- book.title %>",
+          "keywords": [
+            "xss",
+            "cross-site",
+            "unescaped",
+            "<%-",
+            "escape",
+            "escaping",
+            "html injection"
+          ]
+        },
+        {
+          "bug": "B5",
+          "file": "tests/routes/api.test.ts",
+          "lines": [
+            25,
+            25
+          ],
+          "anchor": "toBeGreaterThan(0)",
+          "keywords": [
+            "weaken",
+            "toBeGreaterThan",
+            "toHaveLength",
+            "loosen",
+            "50 books",
+            "weak assertion"
+          ]
+        }
+      ]
+    }
+  ]
+}

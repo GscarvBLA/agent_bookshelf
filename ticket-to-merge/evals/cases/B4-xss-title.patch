@@ -1,0 +1,26 @@
+diff --git a/src/views/partials/book-grid.ejs b/src/views/partials/book-grid.ejs
+index 589e1be..001b03e 100644
+--- a/src/views/partials/book-grid.ejs
++++ b/src/views/partials/book-grid.ejs
+@@ -1,7 +1,7 @@
+ <div class="book-grid">
+   <% books.forEach(book => { %>
+     <div class="book-card">
+-      <h2><a href="/books/<%= book.id %>"><%= book.title %></a></h2>
++      <h2><a href="/books/<%= book.id %>"><%- book.title %></a></h2>
+       <p class="author">by <%= book.author %></p>
+       <% if (book.published_year) { %>
+         <p class="year"><%= book.published_year %></p>
+diff --git a/tests/routes/books.test.ts b/tests/routes/books.test.ts
+index 95a9818..fee58b3 100644
+--- a/tests/routes/books.test.ts
++++ b/tests/routes/books.test.ts
+@@ -35,7 +35,7 @@ describe('GET /books/search', () => {
+   it('AC8: matches ignoring case, including non-ASCII', async () => {
+     const res = await request(app).get('/books/search?q=' + encodeURIComponent('MIÉVILLE'));
+     expect(res.status).toBe(200);
+-    expect(res.text).toContain('The City &amp; the City');
++    expect(res.text).toContain('The City & the City');
+     expect(res.text).not.toContain('The Hobbit');
+   });
+ 
