@@ -37,6 +37,20 @@
           }
         ]
       }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "^(ticket-to-merge:)?implementer$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/gate.mjs"],
+            "timeout": 300,
+            "onFailure": "continue"
+          }
+        ]
+      }
     ]
   }
 }
