@@ -1,0 +1,80 @@
+{
+  "case": "combined",
+  "kind": "bug",
+  "spec": "present",
+  "clean": [],
+  "runs": 3,
+  "bugs": [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5"
+  ],
+  "matrix": {
+    "B1": [
+      true,
+      true,
+      true
+    ],
+    "B2": [
+      true,
+      true,
+      true
+    ],
+    "B3": [
+      true,
+      true,
+      true
+    ],
+    "B4": [
+      true,
+      true,
+      true
+    ],
+    "B5": [
+      true,
+      true,
+      true
+    ]
+  },
+  "recall": 1,
+  "findings": 18,
+  "tp": 15,
+  "duplicate": 0,
+  "needsJudgement": 3,
+  "provisionalPrecision": 0.8333333333333334,
+  "perRun": [
+    {
+      "run": 1,
+      "sessionId": "2f3ae8b4-8695-4c35-a83f-027bcd1c5ef1",
+      "cost": 0.5084963,
+      "models": [
+        "claude-sonnet-5-5"
+      ],
+      "findings": 6,
+      "error": null
+    },
+    {
+      "run": 2,
+      "sessionId": "88e231fc-cb22-48ca-8eba-505d581f243c",
+      "cost": 0.5398503,
+      "models": [
+        "claude-sonnet-5-5"
+      ],
+      "findings": 6,
+      "error": null
+    },
+    {
+      "run": 3,
+      "sessionId": "06e0221e-4679-45a9-ba66-7ee0549f7ffc",
+      "cost": 0.5186667,
+      "models": [
+        "claude-sonnet-5-5"
+      ],
+      "findings": 6,
+      "error": null
+    }
+  ],
+  "totalCost": 1.5670133
+}
