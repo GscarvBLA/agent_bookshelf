@@ -13,7 +13,11 @@ You run this recipe in the main session. You coordinate; you do not write applic
 - `ticket-to-merge:test-writer` writes failing tests from the spec.
 - `ticket-to-merge:implementer` writes code until those tests pass. It cannot edit `tests/` (a hook blocks it).
 
-Spec path: `$ARGUMENTS`. If empty, use `SPEC.md` in the repo root.
+Arguments: `$ARGUMENTS`
+- The first argument that does not start with `--` is the spec path. If there is none, use `SPEC.md` in the repo root.
+- `--from-review <base>`: the code is already built and committed on this branch. Skip steps 1 to 3 and start at step 4 with `<base>` as the base commit. Use it to review and fix existing work. The done-gate (step 3 rules), the committing rules and the fix loop apply as usual.
+
+A `SubagentStop` hook also gates the implementer: it cannot finish while the build or tests are red (it gives up after 3 attempts). Your own done-gate in step 3 is the second check.
 
 ## Rules for the whole run
 
@@ -46,8 +50,9 @@ Stop and report if any of these fail. Do not try to fix them.
 
 1. The spec file exists and has a numbered `Acceptance criteria` section. Read it once. Take `<REF>` from its title (for example `BOOK-101`), or use `TICKET` if there is none.
 2. `git status --porcelain` is empty, and the current branch is not `main` or `master`.
-3. Record the base commit: `git rev-parse HEAD`. Every later diff is `<base>...HEAD`.
+3. Record the base commit: `git rev-parse HEAD`. Every later diff is `<base>...HEAD`. With `--from-review <base>`, use that `<base>` instead, and check that `git log --oneline <base>..HEAD` is not empty.
 4. Baseline: run the suite. Record the number of passing tests. If it is not green, stop: the problem is not ours to fix in this run.
+5. With `--from-review`, go straight to step 4. The final report says "Started at review" and lists the commits in `<base>..HEAD` as existing work.
 
 ## Step 1: Tests (red)
 
