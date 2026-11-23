@@ -7,10 +7,16 @@ import * as Shelf from '../models/shelf.js';
 const router = Router();
 
 // Books API
-router.get('/books', (req: Request, res: Response) => {
-  const books = Book.getAllBooks();
-  res.json(books);
-});
+function searchBooksHandler(req: Request, res: Response) {
+  const parsed = Book.parseSearchQuery(req.query.q);
+  if (!parsed.ok) {
+    return res.status(400).json({ error: parsed.error });
+  }
+  res.json(Book.searchBooks(parsed.query));
+}
+
+router.get('/books', searchBooksHandler);
+router.get('/books/search', searchBooksHandler);
 
 router.get('/books/:id', (req: Request, res: Response) => {
   const bookId = parseInt(req.params.id as string, 10);

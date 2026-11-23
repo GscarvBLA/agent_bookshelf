@@ -1,0 +1,7 @@
+<% if (books.length === 0) { %>
+<div class="search-message">
+  <p>No books found</p>
+</div>
+<% } else { %>
+<%- include('../partials/book-grid', { books }) %>
+<% } %>

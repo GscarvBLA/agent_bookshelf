@@ -19,10 +19,32 @@ export function getBookById(id: number): Book | undefined {
   return get('SELECT * FROM books WHERE id = ?', [id]) as unknown as Book | undefined;
 }
 
+export type SearchQueryResult = { ok: true; query: string } | { ok: false; error: string };
+
+const MAX_QUERY_LENGTH = 100;
+
+export function parseSearchQuery(raw: unknown): SearchQueryResult {
+  if (raw === undefined) return { ok: true, query: '' };
+  if (typeof raw !== 'string') return { ok: false, error: 'Search query must be a single value' };
+  const query = raw.trim();
+  if (/[\u0000-\u001f\u007f]/.test(query)) {
+    return { ok: false, error: 'Search query contains invalid characters' };
+  }
+  if (query.length > MAX_QUERY_LENGTH) {
+    return { ok: false, error: 'Search query must be 100 characters or fewer' };
+  }
+  return { ok: true, query };
+}
+
 export function searchBooks(query: string): Book[] {
-  const pattern = `%${query}%`;
+  const parsed = parseSearchQuery(query);
+  if (!parsed.ok) throw new Error(parsed.error);
+  if (parsed.query === '') return getAllBooks();
+
+  const escaped = parsed.query.toLowerCase().replace(/[\\%_]/g, (c) => `\\${c}`);
+  const pattern = `%${escaped}%`;
   return all(
-    'SELECT * FROM books WHERE title LIKE ? OR author LIKE ? ORDER BY title',
+    "SELECT * FROM books WHERE lower_js(title) LIKE ? ESCAPE '\\' OR lower_js(author) LIKE ? ESCAPE '\\' ORDER BY title",
     [pattern, pattern]
   ) as unknown as Book[];
 }

@@ -9,6 +9,7 @@ declare module 'sql.js' {
     prepare(sql: string): Statement;
     export(): Uint8Array;
     close(): void;
+    create_function(name: string, func: (...args: unknown[]) => unknown): Database;
   }
 
   export interface Statement {

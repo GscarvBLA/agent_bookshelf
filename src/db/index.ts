@@ -10,6 +10,11 @@ let SQL: SqlJsStatic;
 let db: Database;
 let dbPath: string;
 
+// sql.js export() drops user functions, so they are registered again after each export
+function registerFunctions(database: Database): void {
+  database.create_function('lower_js', (value: unknown) => String(value).toLowerCase());
+}
+
 export async function initDb(path?: string): Promise<Database> {
   if (!SQL) {
     SQL = await initSqlJs({
@@ -26,6 +31,7 @@ export async function initDb(path?: string): Promise<Database> {
     db = new SQL.Database();
   }
 
+  registerFunctions(db);
   db.run('PRAGMA foreign_keys = ON');
 
   const schema = readFileSync(join(__dirname, 'schema.sql'), 'utf-8');
@@ -53,6 +59,7 @@ export function getDb(): Database {
 export function saveDb(): void {
   if (db) {
     const data = db.export();
+    registerFunctions(db);
     const buffer = Buffer.from(data);
     writeFileSync(dbPath, buffer);
   }
