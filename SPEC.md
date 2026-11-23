@@ -100,3 +100,20 @@ Validate in one shared model function. Escape wildcards in the model. Keep error
 - VERIFIED: `title` and `author` are `TEXT NOT NULL` in `src/db/schema.sql`, so matching on them is safe.
 - KNOWN LIMITATION: HTMX ignores 4xx responses by default. A 400 from `/books/search` returns the correct status and body, but the user may see no change in the search box. Fixing the display (for example an HTMX `beforeSwap` setting) is out of scope for this ticket. The user to decide later.
 - OPEN: should the length check happen client-side too, for example `maxlength` on the input? Not required here.
+
+## Verification
+1. `npm run build && npm run test:run` passes, and every criterion has at least one test named `AC<n>:`.
+2. End to end, with the app running (`npm start`, http://localhost:3000):
+
+| Request | Expected |
+|---|---|
+| `curl 'localhost:3000/api/books?q=TOLKIEN'` | `200`, exactly *The Hobbit* and *The Lord of the Rings* |
+| `curl 'localhost:3000/api/books/search?q=hobbit'` | `200`, exactly *The Hobbit* (the alias) |
+| `curl 'localhost:3000/api/books?q=%20%20'` | `200`, all 50 books |
+| `curl "localhost:3000/api/books?q=$(printf 'a%.0s' {1..101})"` | `400`, `{ "error": "Search query must be 100 characters or fewer" }` |
+| `curl 'localhost:3000/api/books?q=MI%C3%89VILLE'` | `200`, exactly *The City & the City* |
+| `curl 'localhost:3000/api/books?q=%00'` | `400`, `{ "error": "Search query contains invalid characters" }` |
+| `curl 'localhost:3000/books/search?q=zzzz'` | `200`, a fragment with `No books found` |
+| `curl 'localhost:3000/api/books/1'` | `200`, book 1 (the alias did not break `/:id`) |
+
+3. In the browser, typing in the home page search box updates the results.
