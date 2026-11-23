@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Planted-bug eval harness for /ticket-to-merge:review-pr.
-// Usage: node ticket-to-merge/evals/run.mjs --case <id|combined> [--runs N] [--model sonnet] [--dry-run] [--keep] [--evals-dir <path>] [--no-spec]
+// Usage: node ticket-to-merge/evals/run.mjs --case <id|combined> [--runs N] [--model sonnet] [--dry-run] [--keep] [--evals-dir <path>] [--no-spec] [--base-ref <commit>]
 import { spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -87,6 +87,10 @@ function parseArgs(argv) {
     else if (a === '--dry-run') o.dryRun = true;
     else if (a === '--keep') o.keep = true;
     else if (a === '--no-spec') o.noSpec = true;
+    else if (a === '--base-ref') {
+      o.baseRef = argv[++i];
+      if (!o.baseRef) throw new Error('--base-ref requires a commit');
+    }
     else if (a === '--evals-dir') {
       const v = argv[++i];
       if (!v) throw new Error('--evals-dir requires a path');
@@ -100,6 +104,7 @@ function parseArgs(argv) {
 }
 
 const stamp = () => new Date().toISOString().replace(/[:.]/g, '-');
+let BASE_REF = null;
 
 // ---------- per-run sandbox ----------
 
@@ -119,6 +124,8 @@ function prepareRun(runDir, testCase, noSpec) {
   const repo = join(runDir, 'repo');
   mkdirSync(runDir, { recursive: true });
   sh('git', ['clone', '-q', '-b', 'book-101', FORK_DIR, repo]);
+  // book-101 may already contain an implementation; --base-ref resets to a commit before it.
+  if (BASE_REF) git(repo, 'reset', '-q', '--hard', BASE_REF);
   // Ensure local main (clone only has origin/main), then cut every link back to the fork.
   if (sh('git', ['rev-parse', '--verify', '-q', 'main'], { cwd: repo, allowFail: true }).status !== 0) {
     git(repo, 'branch', 'main', 'origin/main');
@@ -283,6 +290,7 @@ function buildReports(testCase, runs, noSpec) {
 
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
+  BASE_REF = opts.baseRef ?? null;
   const manifest = loadManifest(opts.evalsDir);
   const testCase = manifest.cases.find((c) => c.id === opts.case);
   if (!testCase) throw new Error(`unknown case "${opts.case}". Known: ${manifest.cases.map((c) => c.id).join(', ')}`);
